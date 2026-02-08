@@ -1,7 +1,19 @@
 import streamlit as st
-import requests
+import os
 import time
-from threading import Thread
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Get API key
+api_key = os.getenv("ANTHROPIC_API_KEY") or st.secrets.get("ANTHROPIC_API_KEY")
+
+if not api_key:
+    st.error("❌ ANTHROPIC_API_KEY not found! Add it to .env or Streamlit Secrets.")
+    st.stop()
+
+# Import SuperBowlAgent and game_state
 from superbowlagent import SuperBowlAgent, game_state
 
 # Initialize agent
@@ -10,6 +22,9 @@ if "agent" not in st.session_state:
 
 agent = st.session_state.agent
 
+# Get user timezone from browser (optional)
+user_timezone = st.session_state.get("timezone", "America/New_York")
+
 # Set page config
 st.set_page_config(
     page_title="NFL Play Call - Super Bowl LX",
@@ -17,7 +32,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS with team colors
+# Custom CSS
 st.markdown("""
     <style>
         * {
@@ -36,11 +51,6 @@ st.markdown("""
             background: linear-gradient(135deg, #001a4d 0%, #003366 100%);
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
         h1 {
             font-size: 3em;
             font-weight: 900;
@@ -50,54 +60,6 @@ st.markdown("""
             background: linear-gradient(45deg, #00ff88, #00ccff);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-        }
-
-        .status-bar {
-            background: rgba(0, 51, 102, 0.8);
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            gap: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid #00ff88;
-        }
-
-        .status-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .status-label {
-            color: #00ccff;
-            font-size: 0.9em;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .status-value {
-            font-size: 1.8em;
-            font-weight: bold;
-            color: #00ff88;
-        }
-
-        .live-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            background: #ff0000;
-            border-radius: 50%;
-            animation: pulse 1s infinite;
-            margin-right: 8px;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
         }
 
         .patriots-card {
@@ -139,7 +101,6 @@ st.markdown("""
             border-radius: 15px;
             padding: 25px;
             border-left: 4px solid #00ff88;
-            backdrop-filter: blur(10px);
             margin-bottom: 15px;
         }
 
@@ -149,14 +110,6 @@ st.markdown("""
             border-radius: 10px;
             padding: 20px;
             margin-bottom: 20px;
-        }
-
-        footer {
-            text-align: center;
-            padding-top: 30px;
-            border-top: 1px solid #00ff88;
-            color: #00ccff;
-            opacity: 0.7;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -169,21 +122,26 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Get current game time
+game_time, quarter = agent.get_game_time(user_timezone)
+local_time = agent.get_user_local_time(user_timezone)
+
 # Status Bar
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.metric("🔴 Status", "LIVE")
+    status = "LIVE" if game_state["game_started"] else "PENDING"
+    st.metric("🔴 Status", status)
 
 with col2:
-    st.metric("⏱️ Game Time", f"Q{game_state['quarter']} • {game_state['time_remaining']}")
+    st.metric("⏱️ Game Time", f"Q{quarter} • {game_time}")
 
 with col3:
     possession = "🅿️ Patriots" if game_state['possession'] == "NE" else "🦅 Seahawks"
     st.metric("📍 Possession", possession)
 
 with col4:
-    st.metric("📅 Date", "Feb 8, 2026")
+    st.metric("🕐 Local Time", local_time)
 
 st.divider()
 
@@ -231,7 +189,7 @@ with col2:
     st.markdown(f"""
     <div style="background: rgba(0, 51, 102, 0.9); border-radius: 15px; padding: 20px;">
         <div style="color: #00ccff; margin-bottom: 10px;">Seahawks Win Probability</div>
-        <div style="width: 100%; background: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden; height: 30px;">
+        <div style="width: 100%; background: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden, height: 30px;">
             <div style="width: {sea_prob}%; background: linear-gradient(90deg, #0C2C56, #69be28); height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">{sea_prob}%</div>
         </div>
     </div>
@@ -245,6 +203,7 @@ col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("▶️ Start Game", use_container_width=True):
         st.session_state.game_running = True
+        game_state["game_started"] = True
         st.rerun()
 
 with col2:
@@ -255,37 +214,65 @@ with col2:
 with col3:
     if st.button("⏹️ Stop", use_container_width=True):
         st.session_state.game_running = False
+        st.rerun()
 
 st.divider()
 
-# Features
+# Live Features
 st.subheader("🎙️ Live Features")
 
-tab1, tab2, tab3, tab4 = st.tabs(["Commentary", "NFL Basics", "Sentiment", "Facts"])
+tab1, tab2, tab3, tab4 = st.tabs(["Commentary", "NFL Basics", "Sentiment", "Fun Facts"])
 
 with tab1:
     st.markdown("""
     <div class="feature-card">
-        <h3>🎙️ Play Commentary</h3>
-        <p>"AND THERE'S THE TOUCHDOWN! The Patriots extend their lead with an incredible catch in the end zone! The crowd is absolutely going wild right now!"</p>
+        <h3 style="color: #00ff88; margin-bottom: 12px;">🎙️ Play Commentary</h3>
+        <p style="color: #ccc; line-height: 1.6;">"AND THERE'S THE TOUCHDOWN! The Patriots extend their lead with an incredible catch in the end zone! The crowd is absolutely going wild right now!"</p>
     </div>
     """, unsafe_allow_html=True)
+    
+    if st.button("Generate Commentary", key="commentary"):
+        try:
+            agent.show_play_commentary()
+            st.success("✅ Commentary generated!")
+        except Exception as e:
+            st.error(f"Error generating commentary: {e}")
 
 with tab2:
     st.markdown("""
     <div class="feature-card">
-        <h3>🏈 NFL Basics: Touchdowns</h3>
-        <p>A touchdown is when a team gets the ball into the opponent's end zone. It's worth 6 points and is the main way to score big in football!</p>
+        <h3 style="color: #00ff88; margin-bottom: 12px;">🏈 NFL Basics</h3>
+        <p style="color: #ccc; line-height: 1.6;">Learn about football concepts and rules!</p>
     </div>
     """, unsafe_allow_html=True)
+    
+    lesson_topic = st.selectbox(
+        "Choose a topic to learn:",
+        ["touchdown", "down", "penalty", "turnover", "sack", "field goal"],
+        key="nfl_lesson"
+    )
+    
+    if st.button("Explain Topic", key="explain"):
+        try:
+            agent.show_basic_nfl_lesson(lesson_topic)
+            st.success("✅ Explanation generated!")
+        except Exception as e:
+            st.error(f"Error generating explanation: {e}")
 
 with tab3:
     st.markdown("""
     <div class="feature-card">
-        <h3>😍 Fan Sentiment: POSITIVE</h3>
-        <p><strong>Trending:</strong> #PatriotsLead #SuperBowlLX #TouchdownParty<br><br>Fans are loving the fast-paced action and big plays!</p>
+        <h3 style="color: #00ff88; margin-bottom: 12px;">😍 Fan Sentiment Analysis</h3>
+        <p style="color: #ccc; line-height: 1.6;">See what fans are saying on social media!</p>
     </div>
     """, unsafe_allow_html=True)
+    
+    if st.button("Analyze Sentiment", key="sentiment"):
+        try:
+            agent.show_sentiment_analysis()
+            st.success("✅ Sentiment analyzed!")
+        except Exception as e:
+            st.error(f"Error analyzing sentiment: {e}")
 
 with tab4:
     st.markdown("""
@@ -293,6 +280,13 @@ with tab4:
         <strong>📚 Super Bowl Fact:</strong> The Super Bowl is watched by over 100 million people worldwide, making it one of the most-watched sporting events! This is Super Bowl LX (60 in Roman numerals) - a historic game!
     </div>
     """, unsafe_allow_html=True)
+    
+    if st.button("Show Fun Fact", key="fun_fact"):
+        try:
+            agent.show_fun_fact()
+            st.success("✅ Fun fact displayed!")
+        except Exception as e:
+            st.error(f"Error showing fun fact: {e}")
 
 st.divider()
 

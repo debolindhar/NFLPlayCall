@@ -8,16 +8,22 @@ Super Bowl LX: Patriots vs Seahawks - February 8, 2026
 import os
 import json
 import time
+import random
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
-import anthropic
 from dotenv import load_dotenv
+import anthropic
+from zoneinfo import ZoneInfo
 
 load_dotenv()
 
 # Initialize Anthropic client
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+# Super Bowl LX Start Time: February 8, 2026 at 6:30 PM ET
+SUPER_BOWL_START_TIME = datetime(2026, 2, 8, 18, 30, 0)  # 6:30 PM ET
+SUPER_BOWL_DURATION = 4 * 60 * 15  # 4 quarters * 60 minutes * 15 seconds per minute
 
 # Game state tracking
 game_state = {
@@ -33,6 +39,7 @@ game_state = {
     "notable_plays": [],
     "player_stats": {},
     "win_probability": {"NE": 55, "SEA": 45},
+    "game_start_timestamp": None,
 }
 
 NFL_CONTEXT = {
@@ -67,7 +74,8 @@ class SuperBowlAgent:
     def __init__(self):
         self.update_count = 0
         self.api_calls_made = 0
-        
+        game_state["game_start_timestamp"] = time.time()
+    
     def format_header(self, text: str):
         """Format section headers"""
         return f"\n{'='*60}\n{text.center(60)}\n{'='*60}\n"
@@ -189,178 +197,131 @@ class SuperBowlAgent:
         self.api_calls_made += 1
         return message.content[0].text
     
-    def simulate_game_update(self):
-        """Fetch real live game data from ESPN API"""
+    def get_game_time(self, user_timezone="America/New_York"):
+        """Calculate game time based on when the game started"""
+        
+        if not game_state["game_started"]:
+            return "15:00", 1
+        
+        # Get elapsed time since game started (in seconds)
+        elapsed_seconds = time.time() - game_state["game_start_timestamp"]
+        
+        # Each real second = 2 seconds of game time (speed up gameplay)
+        game_seconds_elapsed = elapsed_seconds * 2
+        
+        # Calculate quarter and time remaining
+        seconds_per_quarter = 15 * 60  # 15 minutes per quarter
+        
+        quarter = int(game_seconds_elapsed // seconds_per_quarter) + 1
+        quarter = min(quarter, 4)  # Cap at quarter 4
+        
+        # Time remaining in current quarter
+        seconds_in_quarter = int(game_seconds_elapsed % seconds_per_quarter)
+        seconds_remaining = seconds_per_quarter - seconds_in_quarter
+        
+        minutes = seconds_remaining // 60
+        seconds = seconds_remaining % 60
+        
+        time_str = f"{minutes:02d}:{seconds:02d}"
+        
+        game_state["quarter"] = quarter
+        game_state["time_remaining"] = time_str
+        
+        # End game at quarter 4, 0:00
+        if quarter == 4 and minutes == 0 and seconds == 0:
+            game_state["game_ended"] = True
+        
+        return time_str, quarter
+    
+    def get_user_local_time(self, user_timezone="America/New_York"):
+        """Get current time in user's timezone"""
         try:
-            # ESPN API endpoint for NFL scoreboard
+            tz = ZoneInfo(user_timezone)
+            local_time = datetime.now(tz)
+            return local_time.strftime("%I:%M %p %Z")
+        except:
+            return datetime.now().strftime("%I:%M %p")
+    
+    def simulate_game_update(self):
+        """Fetch real live game data using Sports API"""
+        self.update_count += 1
+        
+        try:
+            # Try ESPN API
             url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
-            
             response = requests.get(url, timeout=5)
             response.raise_for_status()
             
-            data = response.json()
-            events = data.get("events", [])
+            games = response.json().get("events", [])
             
-            # Find Super Bowl game (Patriots vs Seahawks)
-            for event in events:
-                competitions = event.get("competitions", [])
-                if not competitions:
-                    continue
+            for game in games:
+                competitors = game.get("competitions", [{}])[0].get("competitors", [])
                 
-                comp = competitions[0]
-                competitors = comp.get("competitors", [])
-                
-                if len(competitors) < 2:
-                    continue
-                
-                # Get team info
-                team1 = competitors[0].get("team", {})
-                team2 = competitors[1].get("team", {})
-                
-                abbr1 = team1.get("abbreviation", "")
-                abbr2 = team2.get("abbreviation", "")
-                
-                # Check if this is our Super Bowl game
-                if (abbr1 in ["NE", "SEA"]) and (abbr2 in ["NE", "SEA"]):
+                if len(competitors) >= 2:
+                    team1 = competitors[0].get("team", {}).get("abbreviation", "")
+                    team2 = competitors[1].get("team", {}).get("abbreviation", "")
                     
-                    # Update scores
-                    score1 = int(competitors[0].get("score", 0))
-                    score2 = int(competitors[1].get("score", 0))
-                    
-                    if abbr1 == "NE":
-                        game_state["current_score"]["NE"] = score1
-                        game_state["current_score"]["SEA"] = score2
-                    else:
-                        game_state["current_score"]["SEA"] = score1
-                        game_state["current_score"]["NE"] = score2
-                    
-                    # Get game status
-                    status = comp.get("status", {})
-                    period = status.get("period", 1)
-                    game_state["quarter"] = period
-                    
-                    # Get game clock
-                    display_clock = status.get("displayClock", "15:00")
-                    game_state["time_remaining"] = display_clock
-                    
-                    # Get possession
-                    situation = comp.get("situation", {})
-                    possession = situation.get("possession", "NE")
-                    game_state["possession"] = possession
-                    
-                    # Update win probability if available
-                    odds = comp.get("odds", [])
-                    if odds:
-                        for odd in odds:
-                            if odd.get("provider", {}).get("name") == "ESPN":
-                                win_prob = odd.get("awayTeamOdds", {}).get("winProbability")
-                                if win_prob:
-                                    if abbr1 == "NE":
-                                        game_state["win_probability"]["NE"] = int(float(win_prob) * 100)
-                                        game_state["win_probability"]["SEA"] = 100 - game_state["win_probability"]["NE"]
-                                    else:
-                                        game_state["win_probability"]["SEA"] = int(float(win_prob) * 100)
-                                        game_state["win_probability"]["NE"] = 100 - game_state["win_probability"]["SEA"]
-                    
-                    # Check game status
-                    status_type = status.get("type", "")
-                    
-                    if status_type == "final":
-                        game_state["game_ended"] = True
-                        return "🏆 GAME OVER! Final score is official!"
-                    elif status_type == "halftime":
-                        if not game_state["halftime_passed"]:
-                            game_state["halftime_passed"] = True
-                            return "⏸️ HALFTIME! Teams heading to locker room for the legendary halftime show!"
-                    elif status_type == "in_progress":
-                        if not game_state["game_started"]:
-                            game_state["game_started"] = True
-                            return "🚀 KICKOFF! The game has started!"
+                    if (team1 in ["NE", "SEA"]) and (team2 in ["NE", "SEA"]):
                         
-                        # Detect score changes
-                        ne_prev = game_state["previous_score"]["NE"]
-                        sea_prev = game_state["previous_score"]["SEA"]
+                        # Update scores
+                        score1 = int(competitors[0].get("score", 0))
+                        score2 = int(competitors[1].get("score", 0))
                         
-                        ne_curr = game_state["current_score"]["NE"]
-                        sea_curr = game_state["current_score"]["SEA"]
+                        if team1 == "NE":
+                            game_state["current_score"]["NE"] = score1
+                            game_state["current_score"]["SEA"] = score2
+                        else:
+                            game_state["current_score"]["SEA"] = score1
+                            game_state["current_score"]["NE"] = score2
                         
-                        if ne_curr > ne_prev:
-                            game_state["previous_score"]["NE"] = ne_curr
-                            points = ne_curr - ne_prev
-                            if points == 7:
-                                return "🎉 TOUCHDOWN PATRIOTS! The crowd erupts!"
-                            elif points == 6:
-                                return "🏈 PATRIOTS SCORE! Attempting PAT..."
-                            elif points == 3:
-                                return "⚽ FIELD GOAL PATRIOTS!"
-                            elif points == 2:
-                                return "💪 SAFETY PATRIOTS!"
+                        # Get real ESPN time
+                        clock = game.get("competitions", [{}])[0].get("status", {}).get("displayClock", "15:00")
+                        if clock and ":" in clock:
+                            game_state["time_remaining"] = clock
                         
-                        if sea_curr > sea_prev:
-                            game_state["previous_score"]["SEA"] = sea_curr
-                            points = sea_curr - sea_prev
-                            if points == 7:
-                                return "🎉 TOUCHDOWN SEAHAWKS! Incredible play!"
-                            elif points == 6:
-                                return "🏈 SEAHAWKS SCORE! PAT coming..."
-                            elif points == 3:
-                                return "⚽ FIELD GOAL SEAHAWKS!"
-                            elif points == 2:
-                                return "💪 SAFETY SEAHAWKS!"
+                        # Get period
+                        period = game.get("competitions", [{}])[0].get("status", {}).get("period", 1)
+                        game_state["quarter"] = period
                         
-                        return f"📊 Live Update: Q{game_state['quarter']} | {game_state['time_remaining']}"
+                        # Get possession
+                        possession_team = game.get("competitions", [{}])[0].get("situation", {}).get("possession", "NE")
+                        game_state["possession"] = possession_team
+                        
+                        # Check status
+                        status = game.get("status", {}).get("type", {}).get("description", "")
+                        
+                        if status == "Final":
+                            game_state["game_ended"] = True
+                        elif status == "Halftime":
+                            if not game_state["halftime_passed"]:
+                                game_state["halftime_passed"] = True
+                        
+                        game_state["game_started"] = True
+                        return f"Update: {status}"
             
-            return self._fallback_simulation()
-        
-        except requests.exceptions.RequestException as e:
-            print(f"⚠️ ESPN API unavailable: {e}")
+            # If ESPN data not available, use simulated time
             return self._fallback_simulation()
         
         except Exception as e:
-            print(f"⚠️ Error parsing ESPN data: {e}")
+            print(f"ESPN API Error: {e}")
             return self._fallback_simulation()
     
     def _fallback_simulation(self):
-        """Fallback to simulated data if ESPN API is unavailable"""
-        if game_state["quarter"] == 1 and game_state["time_remaining"] == "15:00":
-            game_state["game_started"] = True
-            return "KICKOFF! The game has started!"
+        """Fallback to simulated data with calculated time"""
         
-        # Simulate score changes every few updates
-        if self.update_count % 3 == 0 and not game_state["game_ended"]:
-            if self.update_count % 6 == 0:
-                game_state["current_score"]["NE"] += 7
-                return "TOUCHDOWN PATRIOTS! Crowd goes wild!"
+        game_state["game_started"] = True
+        
+        # Use calculated game time
+        time_str, quarter = self.get_game_time()
+        
+        # Simulate score changes
+        if self.update_count % 10 == 0 and not game_state["game_ended"]:
+            if random.choice([True, False]):
+                game_state["current_score"]["NE"] += random.choice([3, 6, 7])
             else:
-                game_state["current_score"]["SEA"] += 3
-                return "Field goal for the Seahawks! Points on the board!"
+                game_state["current_score"]["SEA"] += random.choice([3, 6, 7])
         
-        # Update quarter and time
-        if self.update_count % 8 == 0 and game_state["quarter"] < 4:
-            game_state["quarter"] += 1
-            game_state["time_remaining"] = "15:00"
-            return f"END OF QUARTER {game_state['quarter']-1}! Moving to Quarter {game_state['quarter']}"
-        
-        if self.update_count % 2 == 0:
-            # Decrement time
-            mins, secs = map(int, game_state["time_remaining"].split(":"))
-            secs -= 30
-            if secs < 0:
-                secs += 60
-                mins -= 1
-            game_state["time_remaining"] = f"{mins:02d}:{secs:02d}"
-        
-        # Halftime at end of Q2
-        if game_state["quarter"] == 2 and self.update_count % 10 == 0 and not game_state["halftime_passed"]:
-            game_state["halftime_passed"] = True
-            return "HALFTIME! Time for the legendary halftime show!"
-        
-        # Check if game is ending
-        if game_state["quarter"] == 4 and game_state["time_remaining"] == "00:00":
-            game_state["game_ended"] = True
-            return "GAME OVER!"
-        
-        return None
+        return f"Simulated: Q{quarter} {time_str}"
     
     def show_basic_nfl_lesson(self, lesson_topic: str):
         """Show NFL education snippets"""
