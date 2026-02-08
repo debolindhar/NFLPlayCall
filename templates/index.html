@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFL Play Call - Super Bowl LX</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #001a4d 0%, #003366 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: slideDown 0.6s ease-out;
+        }
+
+        header h1 {
+            font-size: 3em;
+            font-weight: 900;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            letter-spacing: 2px;
+            background: linear-gradient(45deg, #00ff88, #00ccff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header p {
+            font-size: 1.2em;
+            color: #00ff88;
+            opacity: 0.9;
+        }
+
+        .status-bar {
+            background: rgba(0, 51, 102, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid #00ff88;
+        }
+
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .status-label {
+            color: #00ccff;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .status-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #00ff88;
+        }
+
+        .live-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #ff0000;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .scoreboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .team-card {
+            background: rgba(0, 51, 102, 0.9);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            border: 2px solid #00ff88;
+            transition: transform 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .team-card:hover {
+            transform: translateY(-5px);
+        }
+
+        /* Patriots Colors: Navy Blue (#002B5C) and Silver/White */
+        .team-card.patriots {
+            border-color: #b0b7bc;
+            box-shadow: 0 0 30px rgba(0, 43, 92, 0.8);
+            background: linear-gradient(135deg, rgba(0, 43, 92, 0.95) 0%, rgba(20, 50, 100, 0.9) 100%);
+            border: 3px solid #b0b7bc;
+        }
+
+        .team-card.patriots:hover {
+            box-shadow: 0 0 40px rgba(176, 183, 188, 0.6);
+        }
+
+        /* Seahawks Colors: Navy Blue (#0C2C56) and Neon Green (#69be28) */
+        .team-card.seahawks {
+            border-color: #69be28;
+            box-shadow: 0 0 30px rgba(105, 190, 40, 0.6);
+            background: linear-gradient(135deg, rgba(12, 44, 86, 0.95) 0%, rgba(20, 60, 100, 0.9) 100%);
+            border: 3px solid #69be28;
+        }
+
+        .team-card.seahawks:hover {
+            box-shadow: 0 0 40px rgba(105, 190, 40, 0.8);
+        }
+
+        .team-name {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .team-score {
+            font-size: 4em;
+            font-weight: 900;
+            margin: 20px 0;
+        }
+
+        .patriots .team-score {
+            color: #b0b7bc;
+            text-shadow: 2px 2px 8px rgba(0, 43, 92, 0.8);
+        }
+
+        .seahawks .team-score {
+            color: #69be28;
+            text-shadow: 2px 2px 8px rgba(105, 190, 40, 0.6);
+        }
+
+        .team-logo {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .feature-card {
+            background: rgba(0, 51, 102, 0.9);
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 4px solid #00ff88;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .feature-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+        }
+
+        .feature-card h3 {
+            color: #00ff88;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .feature-card p {
+            color: #ccc;
+            line-height: 1.6;
+            font-size: 0.95em;
+        }
+
+        .feature-card .emoji {
+            font-size: 1.5em;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .quarter-indicator {
+            background: rgba(255, 0, 136, 0.2);
+            border: 2px solid #ff0088;
+            border-radius: 10px;
+            padding: 12px 24px;
+            display: inline-block;
+            font-weight: bold;
+        }
+
+        .win-probability {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .prob-bar {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+        }
+
+        .prob-fill {
+            background: linear-gradient(90deg, #00ff88, #00ccff);
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            border-radius: 5px;
+            min-width: 40px;
+        }
+
+        .prob-fill.patriots {
+            background: linear-gradient(90deg, #002B5C, #b0b7bc);
+        }
+
+        .prob-fill.seahawks {
+            background: linear-gradient(90deg, #0C2C56, #69be28);
+        }
+
+        .fun-fact {
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 204, 255, 0.1) 100%);
+            border: 1px dashed #00ff88;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            color: #e0e0e0;
+            line-height: 1.8;
+        }
+
+        .game-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #00ff88, #00ccff);
+            color: #001a4d;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1em;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 255, 136, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        footer {
+            text-align: center;
+            padding-top: 30px;
+            border-top: 1px solid #00ff88;
+            color: #00ccff;
+            opacity: 0.7;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+
+            .scoreboard {
+                grid-template-columns: 1fr;
+            }
+
+            .team-score {
+                font-size: 3em;
+            }
+
+            .status-bar {
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>🏈 NFL Play Call</h1>
+            <p>Super Bowl LX Live Experience</p>
+        </header>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-label"><span class="live-indicator"></span>Status</div>
+                <div class="status-value" id="status">LOADING</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Game Time</div>
+                <div class="status-value" id="gametime">Q1 • 15:00</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Possession</div>
+                <div class="status-value" id="possession">🅿️</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Date</div>
+                <div class="status-value">Feb 8, 2026</div>
+            </div>
+        </div>
+
+        <!-- Game Controls -->
+        <div class="game-controls">
+            <button class="btn" onclick="startGame()">▶️ Start Game</button>
+            <button class="btn" onclick="manualUpdate()">🔄 Update</button>
+            <button class="btn" onclick="stopGame()">⏹️ Stop</button>
+        </div>
+
+        <!-- Scoreboard -->
+        <div class="scoreboard">
+            <div class="team-card patriots">
+                <div class="team-logo">🅿️</div>
+                <div class="team-name">New England Patriots</div>
+                <div class="team-score" id="ne-score">0</div>
+                <div class="quarter-indicator">↑ Momentum</div>
+            </div>
+            <div class="team-card seahawks">
+                <div class="team-logo">🦅</div>
+                <div class="team-name">Seattle Seahawks</div>
+                <div class="team-score" id="sea-score">0</div>
+                <div class="quarter-indicator">Regrouping</div>
+            </div>
+        </div>
+
+        <!-- Win Probability -->
+        <div style="background: rgba(0, 51, 102, 0.9); border-radius: 15px; padding: 25px; margin-bottom: 30px; backdrop-filter: blur(10px);">
+            <h3 style="color: #00ff88; margin-bottom: 20px;">📊 Win Probability</h3>
+            <div class="win-probability">
+                <div>
+                    <div style="margin-bottom: 8px; color: #b0b7bc;">🅿️ Patriots</div>
+                    <div class="prob-bar">
+                        <div class="prob-fill patriots" id="ne-prob-fill" style="width: 50%;">50%</div>
+                    </div>
+                </div>
+                <div>
+                    <div style="margin-bottom: 8px; color: #69be28;">🦅 Seahawks</div>
+                    <div class="prob-bar">
+                        <div class="prob-fill seahawks" id="sea-prob-fill" style="width: 50%;">50%</div>
+                    </div>
+                </div>
+            </div>
+            <p id="prob-explanation" style="margin-top: 15px; color: #ccc; font-size: 0.95em;">Loading game data...</p>
+        </div>
+
+        <!-- Features Grid -->
+        <div class="features-grid">
+            <!-- Commentary -->
+            <div class="feature-card">
+                <h3><span class="emoji">🎙️</span> Play Commentary</h3>
+                <p id="commentary">Loading live commentary...</p>
+                <button class="btn" onclick="getCommentary()" style="margin-top: 10px; width: 100%;">Get Commentary</button>
+            </div>
+
+            <!-- NFL Basics -->
+            <div class="feature-card">
+                <h3><span class="emoji">🏈</span> NFL Basics</h3>
+                <p id="nfl-lesson">Select a topic to learn about NFL fundamentals.</p>
+                <select id="lesson-topic" style="width: 100%; padding: 8px; margin-top: 10px; border-radius: 5px; background: #001a4d; color: #00ff88; border: 1px solid #00ff88;">
+                    <option value="down">Downs</option>
+                    <option value="touchdown">Touchdowns</option>
+                    <option value="penalty">Penalties</option>
+                    <option value="turnover">Turnovers</option>
+                    <option value="sack">Sacks</option>
+                </select>
+                <button class="btn" onclick="getNFLLesson()" style="margin-top: 10px; width: 100%;">Explain Topic</button>
+            </div>
+
+            <!-- Sentiment -->
+            <div class="feature-card">
+                <h3><span class="emoji">😍</span> Fan Sentiment</h3>
+                <p id="sentiment-text">Loading fan reactions...</p>
+                <div id="sentiment-hashtags" style="margin-top: 10px; color: #00ff88;"></div>
+                <button class="btn" onclick="getSentiment()" style="margin-top: 10px; width: 100%;">Get Sentiment</button>
+            </div>
+
+            <!-- Player Spotlight -->
+            <div class="feature-card">
+                <h3><span class="emoji">⭐</span> Player Spotlight</h3>
+                <p id="player-spotlight">Loading player facts...</p>
+                <button class="btn" onclick="getPlayerSpotlight()" style="margin-top: 10px; width: 100%;">New Player Fact</button>
+            </div>
+
+            <!-- Win Explanation -->
+            <div class="feature-card">
+                <h3><span class="emoji">📈</span> Why These Odds?</h3>
+                <p id="win-prob-expl">Analyzing game situation...</p>
+                <button class="btn" onclick="getWinProbExplanation()" style="margin-top: 10px; width: 100%;">Get Explanation</button>
+            </div>
+
+            <!-- Fun Fact -->
+            <div class="feature-card">
+                <h3><span class="emoji">📚</span> Super Bowl Fact</h3>
+                <p id="fun-fact">Loading Super Bowl facts...</p>
+                <button class="btn" onclick="getFunFact()" style="margin-top: 10px; width: 100%;">New Fact</button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <p>🏆 NFL Play Call - Your AI-Powered Super Bowl Companion 🏆</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">Real-time updates • Beginner-friendly insights • Live sentiment analysis</p>
+            <p style="font-size: 0.85em; margin-top: 5px;">Updates: <span id="update-count">0</span> | API Calls: <span id="api-calls">0</span></p>
+        </footer>
+    </div>
+
+    <script>
+        // Update game state every 1 second
+        function updateGameState() {
+            fetch('/api/game-state')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('ne-score').textContent = data.ne_score;
+                    document.getElementById('sea-score').textContent = data.sea_score;
+                    document.getElementById('gametime').textContent = `Q${data.quarter} • ${data.time}`;
+                    document.getElementById('possession').textContent = data.possession === 'NE' ? '🅿️ Patriots' : '🦅 Seahawks';
+                    document.getElementById('status').textContent = data.game_ended ? 'FINAL' : 'LIVE';
+                    document.getElementById('update-count').textContent = data.update_count;
+                    document.getElementById('api-calls').textContent = data.api_calls;
+
+                    // Update win probability bars
+                    const neProbFill = document.getElementById('ne-prob-fill');
+                    neProbFill.style.width = data.ne_win_prob + '%';
+                    neProbFill.textContent = data.ne_win_prob + '%';
+
+                    const seaProbFill = document.getElementById('sea-prob-fill');
+                    seaProbFill.style.width = data.sea_win_prob + '%';
+                    seaProbFill.textContent = data.sea_win_prob + '%';
+                })
+                .catch(err => console.error('Error fetching game state:', err));
+        }
+
+        function startGame() {
+            fetch('/api/start')
+                .then(response => response.json())
+                .then(data => console.log('Game started:', data));
+        }
+
+        function stopGame() {
+            fetch('/api/stop')
+                .then(response => response.json())
+                .then(data => console.log('Game stopped:', data));
+        }
+
+        function manualUpdate() {
+            fetch('/api/update')
+                .then(response => response.json())
+                .then(data => console.log('Update:', data));
+        }
+
+        function getCommentary() {
+            fetch('/api/commentary')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('commentary').textContent = data.commentary;
+                })
+                .catch(err => console.error('Error:', err));
+        }
+
+        function getNFLLesson() {
+            const topic = document.getElementById('lesson-topic').value;
+            fetch(`/api/nfl-lesson/${topic}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('nfl-lesson').textContent = data.explanation;
+                })
+                .catch(err => console.error('Error:', err));
+        }
+
+        function getSentiment() {
+            fetch('/api/sentiment')
+                .then(response => response.json())
+                .then(data => {
+                    const sentiment = data.sentiment.toUpperCase();
+                    document.getElementById('sentiment-text').textContent = `Sentiment: ${sentiment}`;
+                    document.getElementById('sentiment-hashtags').innerHTML = 
+                        '<strong>Trending:</strong> ' + data.trending_hashtags.join(' ');
+                })
+                .catch(err => console.error('Error:', err));
+        }
+
+        function getPlayerSpotlight() {
+            fetch('/api/player-spotlight')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('player-spotlight').textContent = data.spotlight;
+                })
+                .catch(err => console.error('Error:', err));
+        }
+
+        function getWinProbExplanation() {
+            fetch('/api/win-probability-explanation')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('win-prob-expl').textContent = data.explanation;
+                })
+                .catch(err => console.error('Error:', err));
+        }
+
+        function getFunFact() {
+            fetch('/api/fun-fact')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('fun-fact').textContent = data.fact;
+                })
+                .catch(err => console.error('Error:', err));
+        }
+
+        // Auto-update every 1 second
+        setInterval(updateGameState, 1000);
+        
+        // Initial load
+        updateGameState();
+        getCommentary();
+        getNFLLesson();
+        getSentiment();
+        getPlayerSpotlight();
+        getWinProbExplanation();
+        getFunFact();
+    </script>
+</body>
+</html>
