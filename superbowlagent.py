@@ -324,15 +324,25 @@ class SuperBowlAgent:
         return f"Simulated: Q{quarter} {time_str}"
     
     def show_basic_nfl_lesson(self, lesson_topic: str):
-        """Show NFL education snippets"""
-        print(self.format_header(f"🏈 NFL BASICS: {lesson_topic.upper()}"))
+        """Show beginner-friendly NFL explanations"""
+        
+        lesson_topic = lesson_topic.lower().strip()
         
         prompt = f"""
-        Explain this NFL concept in VERY simple, beginner-friendly language (ELI5 style):
+        Explain this NFL concept in VERY simple, beginner-friendly language for someone watching their FIRST Super Bowl.
         Topic: {lesson_topic}
         
-        Keep it to 2-3 sentences MAX. Use everyday analogies. Be fun and engaging!
-        The user is NEW to American football and this is their first Super Bowl.
+        Requirements:
+        - Use everyday analogies and comparisons
+        - Keep it to 2-3 sentences MAX
+        - Be fun and engaging
+        - Avoid technical jargon
+        - Use simple words a 10-year-old would understand
+        
+        Example for "touchdown":
+        "A touchdown is when you get the ball into the opponent's end zone - like scoring in soccer! It's worth 6 points and is the best way to score in football."
+        
+        Now explain {lesson_topic}:
         """
         
         try:
@@ -344,12 +354,34 @@ class SuperBowlAgent:
                 ]
             )
             self.api_calls_made += 1
-            explanation = message.content[0].text
-            print(f"\n{explanation}\n")
+            
+            explanation = message.content[0].text.strip()
+            
+            if not explanation:
+                explanations = {
+                    "touchdown": "A touchdown is when you get the ball into the opponent's end zone. It's worth 6 points and is the best way to score!",
+                    "down": "A 'down' is one attempt to move the ball forward. Each team gets 4 downs to move the ball 10 yards.",
+                    "penalty": "A penalty is when a player breaks the rules. The other team gets to move closer or get extra yards.",
+                    "turnover": "A turnover happens when the other team gets the ball. This can happen by interception or fumble.",
+                    "sack": "A sack is when the defense tackles the quarterback behind the line. It's a big defensive play!",
+                    "field goal": "A field goal is when you kick the ball through the uprights. It's worth 3 points."
+                }
+                return explanations.get(lesson_topic, "That's an important part of football!")
+            
             return explanation
+            
         except Exception as e:
             print(f"Error generating explanation: {e}")
-            return f"A {lesson_topic} is an important part of football!"
+            # Return fallback explanations
+            explanations = {
+                "touchdown": "A touchdown is when you get the ball into the opponent's end zone. It's worth 6 points and is the best way to score!",
+                "down": "A 'down' is one attempt to move the ball forward. Each team gets 4 downs to move the ball 10 yards.",
+                "penalty": "A penalty is when a player breaks the rules. The other team gets to move closer or get extra yards.",
+                "turnover": "A turnover happens when the other team gets the ball. This can happen by interception or fumble.",
+                "sack": "A sack is when the defense tackles the quarterback behind the line. It's a big defensive play!",
+                "field goal": "A field goal is when you kick the ball through the uprights. It's worth 3 points."
+            }
+            return explanations.get(lesson_topic, "That's an important part of football!")
     
     def show_player_spotlight(self):
         """Feature interesting player stats"""

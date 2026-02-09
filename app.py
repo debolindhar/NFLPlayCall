@@ -3,6 +3,11 @@ import os
 import time
 from dotenv import load_dotenv
 
+# Clear Streamlit cache on startup
+if "initialized" not in st.session_state:
+    st.cache_data.clear()
+    st.session_state.initialized = True
+
 # Load environment variables
 load_dotenv()
 
@@ -249,20 +254,36 @@ with tab2:
     </div>
     """, unsafe_allow_html=True)
     
+    # Create selectbox
+    lesson_options = ["touchdown", "down", "penalty", "turnover", "sack", "field goal"]
     lesson_topic = st.selectbox(
         "Choose a topic to learn:",
-        ["touchdown", "down", "penalty", "turnover", "sack", "field goal"],
+        lesson_options,
         key="nfl_lesson"
     )
     
-    if st.button("Explain Topic", key="explain"):
+    # Create button
+    explain_button = st.button("Explain Topic", key="explain")
+    
+    if explain_button:
         with st.spinner("Generating explanation..."):
             try:
                 explanation = agent.show_basic_nfl_lesson(lesson_topic)
-                st.success("✅ Explanation generated!")
-                st.info(f"📖 {explanation}")
+                
+                # Validate response
+                if explanation is None:
+                    st.error("❌ No explanation received")
+                elif not isinstance(explanation, str):
+                    st.error(f"❌ Invalid response type: {type(explanation)}")
+                elif explanation.strip() == "":
+                    st.error("❌ Empty explanation received")
+                else:
+                    st.success("✅ Explanation generated!")
+                    st.info(f"📖 {explanation}")
+                    
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
+                print(f"Debug error: {e}")  # Print to console for debugging
 
 with tab3:
     st.markdown("""
