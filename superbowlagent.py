@@ -78,7 +78,7 @@ class SuperBowlAgent:
     
     def format_header(self, text: str):
         """Format section headers"""
-        return f"\n{'='*60}\n{text.center(60)}\n{'='*60}\n"
+        return f"\n{'='*60}\n{text}\n{'='*60}\n"
     
     def get_score_display(self):
         """Display current score"""
@@ -327,18 +327,29 @@ class SuperBowlAgent:
         """Show NFL education snippets"""
         print(self.format_header(f"🏈 NFL BASICS: {lesson_topic.upper()}"))
         
-        explanations = {
-            "down": "Football is played in 4 chances (called 'downs') to move the ball 10 yards. If you do, you get 4 more chances!",
-            "touchdown": "A touchdown is worth 6 points and happens when you get the ball into the end zone. It's the main way to score!",
-            "penalty": "Breaking the rules? The opposing team gets extra yards for free.",
-            "turnover": "A turnover is when the other team gets the ball - could be an interception or fumble.",
-            "sack": "This is when the defense tackles the quarterback before he throws the ball!",
-        }
+        prompt = f"""
+        Explain this NFL concept in VERY simple, beginner-friendly language (ELI5 style):
+        Topic: {lesson_topic}
         
-        if lesson_topic.lower() in explanations:
-            print(f"\n{explanations[lesson_topic.lower()]}\n")
-        else:
-            print(self.generate_eli5_explanation(lesson_topic))
+        Keep it to 2-3 sentences MAX. Use everyday analogies. Be fun and engaging!
+        The user is NEW to American football and this is their first Super Bowl.
+        """
+        
+        try:
+            message = client.messages.create(
+                model="claude-3-5-haiku-20241022",
+                max_tokens=150,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            self.api_calls_made += 1
+            explanation = message.content[0].text
+            print(f"\n{explanation}\n")
+            return explanation
+        except Exception as e:
+            print(f"Error generating explanation: {e}")
+            return f"A {lesson_topic} is an important part of football!"
     
     def show_player_spotlight(self):
         """Feature interesting player stats"""
@@ -362,23 +373,112 @@ class SuperBowlAgent:
         print(f"\n{message.content[0].text}\n")
     
     def show_fun_fact(self):
-        """Display Super Bowl fun facts"""
-        import random
-        fact = random.choice(NFL_CONTEXT["fun_facts"])
-        print(f"\n📚 Fun Fact: {fact}\n")
+        """Show interesting Super Bowl facts"""
+        
+        prompt = """
+        Generate ONE interesting and fun fact about the Super Bowl, NFL, or football in general.
+        Make it engaging and educational for someone new to football.
+        Keep it to 1-2 sentences MAX.
+        
+        Examples:
+        - "The Super Bowl is watched by over 100 million people worldwide!"
+        - "NFL footballs are made of cow leather and weigh exactly 14-15 ounces"
+        - "A Super Bowl ad costs $7 million for just 30 seconds!"
+        
+        Now generate a unique, interesting fact:
+        """
+        
+        try:
+            message = client.messages.create(
+                model="claude-3-5-haiku-20241022",
+                max_tokens=150,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            self.api_calls_made += 1
+            
+            fact = message.content[0].text.strip()
+            
+            if not fact:
+                return "The Super Bowl is watched by over 100 million people worldwide!"
+            
+            return fact
+            
+        except Exception as e:
+            print(f"Error generating fact: {e}")
+            # Return fallback fact
+            return "Did you know? A Super Bowl ad costs $7 million for just 30 seconds!"
     
     def show_sentiment_analysis(self):
-        """Show social media sentiment"""
-        print(self.format_header("📊 SOCIAL MEDIA SENTIMENT"))
+        """Show social media sentiment analysis"""
         
-        play = "recent big play" if self.update_count % 2 == 0 else "touchdown celebration"
-        sentiment = self.analyze_sentiment(play)
+        import random
+        import json
         
-        emoji = "😍" if sentiment["sentiment"] == "positive" else "😤" if sentiment["sentiment"] == "negative" else "🤔"
+        sentiment_topics = [
+            f"Patriots leading {game_state['current_score']['NE']}-{game_state['current_score']['SEA']}",
+            f"Quarter {game_state['quarter']} action",
+            f"{game_state['possession']} team has possession",
+            "defensive play from the Seahawks",
+            "Patriots offensive efficiency",
+            f"win probability at {game_state['win_probability']['NE']}% for Patriots",
+            "exciting game momentum shifts",
+            "quarterback performance",
+        ]
         
-        print(f"\nSentiment: {sentiment['sentiment'].upper()} {emoji}")
-        print(f"Trending: {', '.join(sentiment['trending_hashtags'])}")
-        print(f"What fans are saying: {sentiment['key_takeaway']}\n")
+        topic = random.choice(sentiment_topics)
+        
+        prompt = f"""
+        Simulate what Twitter/X sentiment might be about this Super Bowl moment:
+        Topic: {topic}
+        
+        Return ONLY a valid JSON object (nothing else) with these exact fields:
+        - sentiment: "positive", "negative", or "mixed"
+        - trending_hashtags: array of 3 hashtags (without #)
+        - key_takeaway: one sentence summary
+        
+        Example format:
+        {{"sentiment": "positive", "trending_hashtags": ["PatriotsLead", "SuperBowlLX", "TouchdownParty"], "key_takeaway": "Fans love the action"}}
+        """
+        
+        try:
+            message = client.messages.create(
+                model="claude-3-5-haiku-20241022",
+                max_tokens=200,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            self.api_calls_made += 1
+            
+            response_text = message.content[0].text.strip()
+            
+            # Parse JSON response
+            sentiment_data = json.loads(response_text)
+            
+            # Validate the response has required fields
+            if not all(key in sentiment_data for key in ["sentiment", "trending_hashtags", "key_takeaway"]):
+                raise ValueError("Missing required fields in response")
+            
+            return sentiment_data
+            
+        except json.JSONDecodeError as e:
+            print(f"JSON Parse Error: {e}")
+            # Return fallback data with correct structure
+            return {
+                "sentiment": "positive",
+                "trending_hashtags": ["PatriotsLead", "SuperBowlLX", "TouchdownParty"],
+                "key_takeaway": "Fans are loving the intense action and big plays!"
+            }
+        except Exception as e:
+            print(f"Error analyzing sentiment: {e}")
+            # Return fallback data with correct structure
+            return {
+                "sentiment": "positive",
+                "trending_hashtags": ["PatriotsLead", "SuperBowlLX", "TouchdownParty"],
+                "key_takeaway": "Fans are loving the intense action and big plays!"
+            }
     
     def show_commercial_break(self):
         """Show Super Bowl commercial intel"""
@@ -406,22 +506,33 @@ class SuperBowlAgent:
         print(f"\n📈 Why these odds? {self.get_win_probability_explanation()}")
     
     def show_play_commentary(self):
-        """Generate exciting commentary for recent plays"""
-        print(self.format_header("🎙️ PLAY-BY-PLAY COMMENTARY"))
+        """Generate exciting play-by-play commentary"""
+        print(self.format_header("🎙️ PLAY COMMENTARY"))
         
-        plays = [
-            "Patriots complete a 25-yard pass to their receiver",
-            "Seahawks defense sacks the quarterback for a 8-yard loss",
-            "Field goal attempt from 45 yards out",
-            "Running back breaks through for a 12-yard gain"
-        ]
+        prompt = f"""
+        You are an ESPN sports commentator doing live Super Bowl commentary.
+        Current game state: Patriots {game_state['current_score']['NE']} - Seahawks {game_state['current_score']['SEA']}
+        Quarter: {game_state['quarter']}, Time: {game_state['time_remaining']}
         
-        import random
-        play = random.choice(plays)
+        Generate ONE exciting, dynamic play-by-play commentary line (2-3 sentences MAX).
+        Be enthusiastic and engaging! Sound like a real sports broadcaster.
+        """
         
-        commentary = self.generate_commentary(play)
-        print(f"\n{play}")
-        print(f"Commentary: {commentary}\n")
+        try:
+            message = client.messages.create(
+                model="claude-3-5-haiku-20241022",
+                max_tokens=150,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            self.api_calls_made += 1
+            commentary = message.content[0].text
+            print(f"\n{commentary}\n")
+            return commentary
+        except Exception as e:
+            print(f"Error generating commentary: {e}")
+            return "TOUCHDOWN! The crowd is going wild!"
     
     def run_update_cycle(self):
         """Run one cycle of updates"""

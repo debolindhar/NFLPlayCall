@@ -15,6 +15,7 @@ if not api_key:
 
 # Import SuperBowlAgent and game_state
 from superbowlagent import SuperBowlAgent, game_state
+import random
 
 # Initialize agent
 if "agent" not in st.session_state:
@@ -22,7 +23,7 @@ if "agent" not in st.session_state:
 
 agent = st.session_state.agent
 
-# Get user timezone from browser (optional)
+# Get user timezone
 user_timezone = st.session_state.get("timezone", "America/New_York")
 
 # Set page config
@@ -189,7 +190,7 @@ with col2:
     st.markdown(f"""
     <div style="background: rgba(0, 51, 102, 0.9); border-radius: 15px; padding: 20px;">
         <div style="color: #00ccff; margin-bottom: 10px;">Seahawks Win Probability</div>
-        <div style="width: 100%; background: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden, height: 30px;">
+        <div style="width: 100%; background: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden; height: 30px;">
             <div style="width: {sea_prob}%; background: linear-gradient(90deg, #0C2C56, #69be28); height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">{sea_prob}%</div>
         </div>
     </div>
@@ -227,22 +228,24 @@ with tab1:
     st.markdown("""
     <div class="feature-card">
         <h3 style="color: #00ff88; margin-bottom: 12px;">🎙️ Play Commentary</h3>
-        <p style="color: #ccc; line-height: 1.6;">"AND THERE'S THE TOUCHDOWN! The Patriots extend their lead with an incredible catch in the end zone! The crowd is absolutely going wild right now!"</p>
+        <p style="color: #ccc; line-height: 1.6;">Get exciting live commentary from our AI broadcaster!</p>
     </div>
     """, unsafe_allow_html=True)
     
     if st.button("Generate Commentary", key="commentary"):
-        try:
-            agent.show_play_commentary()
-            st.success("✅ Commentary generated!")
-        except Exception as e:
-            st.error(f"Error generating commentary: {e}")
+        with st.spinner("Generating commentary..."):
+            try:
+                commentary = agent.show_play_commentary()
+                st.success("✅ Commentary generated!")
+                st.info(f"📢 {commentary}")
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
 
 with tab2:
     st.markdown("""
     <div class="feature-card">
         <h3 style="color: #00ff88; margin-bottom: 12px;">🏈 NFL Basics</h3>
-        <p style="color: #ccc; line-height: 1.6;">Learn about football concepts and rules!</p>
+        <p style="color: #ccc; line-height: 1.6;">Learn about football concepts!</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -253,40 +256,84 @@ with tab2:
     )
     
     if st.button("Explain Topic", key="explain"):
-        try:
-            agent.show_basic_nfl_lesson(lesson_topic)
-            st.success("✅ Explanation generated!")
-        except Exception as e:
-            st.error(f"Error generating explanation: {e}")
+        with st.spinner("Generating explanation..."):
+            try:
+                explanation = agent.show_basic_nfl_lesson(lesson_topic)
+                st.success("✅ Explanation generated!")
+                st.info(f"📖 {explanation}")
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
 
 with tab3:
     st.markdown("""
     <div class="feature-card">
-        <h3 style="color: #00ff88; margin-bottom: 12px;">😍 Fan Sentiment Analysis</h3>
+        <h3 style="color: #00ff88; margin-bottom: 12px;">😍 Fan Sentiment</h3>
         <p style="color: #ccc; line-height: 1.6;">See what fans are saying on social media!</p>
     </div>
     """, unsafe_allow_html=True)
     
     if st.button("Analyze Sentiment", key="sentiment"):
-        try:
-            agent.show_sentiment_analysis()
-            st.success("✅ Sentiment analyzed!")
-        except Exception as e:
-            st.error(f"Error analyzing sentiment: {e}")
+        with st.spinner("Analyzing sentiment..."):
+            try:
+                sentiment = agent.show_sentiment_analysis()
+                
+                # Validate response
+                if sentiment is None:
+                    st.error("❌ No sentiment data received")
+                elif not isinstance(sentiment, dict):
+                    st.error(f"❌ Invalid response type: {type(sentiment)}")
+                else:
+                    st.success("✅ Sentiment analyzed!")
+                    
+                    # Display sentiment
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        sentiment_value = sentiment.get("sentiment", "mixed")
+                        emoji = "😍" if sentiment_value == "positive" else "😤" if sentiment_value == "negative" else "🤔"
+                        st.metric("Sentiment", f"{sentiment_value.upper()} {emoji}")
+                    
+                    with col2:
+                        hashtags = sentiment.get("trending_hashtags", [])
+                        if isinstance(hashtags, list):
+                            hashtag_str = ", ".join([f"#{tag}" if not tag.startswith('#') else tag for tag in hashtags])
+                        else:
+                            hashtag_str = str(hashtags)
+                        st.metric("Trending", hashtag_str[:30] + "...")
+                    
+                    # Display key takeaway
+                    key_takeaway = sentiment.get("key_takeaway", "Fans are engaged!")
+                    st.info(f"💬 {key_takeaway}")
+                    
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
+                st.write("Debug info:", type(sentiment) if 'sentiment' in locals() else "sentiment not defined")
 
 with tab4:
     st.markdown("""
     <div class="fun-fact">
-        <strong>📚 Super Bowl Fact:</strong> The Super Bowl is watched by over 100 million people worldwide, making it one of the most-watched sporting events! This is Super Bowl LX (60 in Roman numerals) - a historic game!
+        <strong>📚 Super Bowl Facts</strong>
     </div>
     """, unsafe_allow_html=True)
     
     if st.button("Show Fun Fact", key="fun_fact"):
-        try:
-            agent.show_fun_fact()
-            st.success("✅ Fun fact displayed!")
-        except Exception as e:
-            st.error(f"Error showing fun fact: {e}")
+        with st.spinner("Loading fun fact..."):
+            try:
+                fact = agent.show_fun_fact()
+                
+                # Validate response
+                if fact is None:
+                    st.error("❌ No fact received")
+                elif not isinstance(fact, str):
+                    st.error(f"❌ Invalid response type: {type(fact)}")
+                elif fact.strip() == "":
+                    st.error("❌ Empty fact received")
+                else:
+                    st.success("✅ Fun fact loaded!")
+                    st.info(f"🎯 {fact}")
+                    
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
 
 st.divider()
 
